@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: '
+
+  DLGWNodejsFunction - DEV
+
+  SAM''s Template for development environment
+
+  '
+Globals:
+  Api:
+    EndpointConfiguration: REGIONAL
+  Function:
+    Timeout: 60
+Outputs:
+  DLGWNodejsApi:
+    Description: API Gateway endpoint URL for Prod stage for Datalend GW function
+    Value:
+      Fn::Sub: https://dev.DLGWNodejsApi.execute-api.${AWS::Region}.amazonaws.com/${Stage}/
+  DLGWNodejsFunction:
+    Description: DL GW Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - DLGWNodejsFunction
+      - Arn
+Parameters:
+  Stage:
+    Type: String
+Resources:
+  DLGWNodejsApi:
+    Properties:
+      MethodSettings:
+      - DataTraceEnabled: true
+        HttpMethod: '*'
+        LoggingLevel: INFO
+        MetricsEnabled: true
+        ResourcePath: /*
+      StageName:
+        Ref: Stage
+      TracingEnabled: true
+    TracingEnabled: true
+    Type: AWS::Serverless::Api
+    Variables:
+      Stage:
+        Ref: Stage
+  DLGWNodejsFunction:
+    Properties:
+      CodeUri: s3://datalendapi/83b94bb45ec22e1a4870da63fd2e8eba
+      Environment:
+        Variables:
+          errorResponseMode: DEV
+          urlForALB: http://internal-DL-NON-PROD-DEV-NLB-218285291.us-east-1.elb.amazonaws.com:80
+      Events:
+        DLGWSam:
+          Properties:
+            Method: any
+            Path: /{proxy+}
+            RestApiId:
+              Ref: DLGWNodejsApi
+          Type: Api
+      Handler: app.lambdaHandler
+      MemorySize: 1024
+      Policies:
+      - AWSLambdaVPCAccessExecutionRole
+      - AWSXRayDaemonWriteAccess
+      - AmazonAPIGatewayPushToCloudWatchLogs
+      Runtime: nodejs8.10
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-eadcee99
+        - sg-bed4e6cd
+        - sg-291b8e5a
+        SubnetIds:
+        - subnet-02b87fd839730b970
+        - subnet-0cdc50b1b7c71f14d
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31

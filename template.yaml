@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+
+    DLGWNodejsFunction - DEV
+
+    SAM's Template for development environment
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+    Function:
+        Timeout: 60
+    Api:
+        EndpointConfiguration: REGIONAL
+
+Parameters:
+  Stage:
+    Type: String
+
+Resources:
+
+    DLGWNodejsApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: !Ref Stage
+            MethodSettings:
+            - DataTraceEnabled: true  # Put logs into cloudwatch
+              HttpMethod: "*"
+              LoggingLevel: INFO      # INFO or ERROR
+              ResourcePath: "/*"
+              MetricsEnabled: true    # Enable detailed metrics (error 404, latence, ...)
+              # MinimumCompressionSize: 0 
+            TracingEnabled: true      # X ray
+        Variables:
+            Stage: !Ref Stage        
+        TracingEnabled: True    
+        
+    DLGWNodejsFunction:
+        Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+        Properties:
+            Handler: app.lambdaHandler
+            CodeUri: dl-gw-lambda/
+            Runtime: nodejs8.10 
+            Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+                Variables:
+                    urlForALB: http://internal-DL-NON-PROD-DEV-NLB-218285291.us-east-1.elb.amazonaws.com:80 
+                    errorResponseMode: DEV
+            VpcConfig:
+                SecurityGroupIds:
+                    - sg-eadcee99
+                    - sg-bed4e6cd
+                    - sg-291b8e5a
+                SubnetIds:
+                    - subnet-02b87fd839730b970
+                    - subnet-0cdc50b1b7c71f14d                 
+            
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AWSXRayDaemonWriteAccess
+                - AmazonAPIGatewayPushToCloudWatchLogs
+            MemorySize: 1024    
+            Events:
+                DLGWSam:
+                    Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+                    Properties:                        
+                        RestApiId: !Ref DLGWNodejsApi
+                        Path: /{proxy+}
+                        Method: any   
+        
+Outputs:
+
+    DLGWNodejsApi:
+      Description: "API Gateway endpoint URL for Prod stage for Datalend GW function"
+      Value: !Sub "https://dev.DLGWNodejsApi.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
+
+    DLGWNodejsFunction:
+      Description: "DL GW Lambda Function ARN"
+      Value: !GetAtt DLGWNodejsFunction.Arn
+ 
